@@ -13,14 +13,6 @@
 %% %@ P = ['Craig Peter Smith', 'Lloyd Smith', 'Hans Peter Smith'].
 %% %@ P = ['Craig Peter Smith', 'Lloyd Smith', 'Hans Peter Smith'].
 
-%% what_relation(X, Y, grandmother) :-
-%%     (father(Z, X); mother(Z, X)),
-%%     mother(Y, Z),
-
-%% what_relation(X, Y, grandfather) :-
-%%     (father(Z, X); mother(Z, X)),
-%%     father(Y, Z),
-
 % Добавлять ли то, что выше? 
 
 what_relation(X, Y, brother) :-
