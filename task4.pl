@@ -13,17 +13,17 @@
 %% %@ P = ['Craig Peter Smith', 'Lloyd Smith', 'Hans Peter Smith'].
 %% %@ P = ['Craig Peter Smith', 'Lloyd Smith', 'Hans Peter Smith'].
 
-% Добавлять ли то, что выше? 
+%  Для X-а Y является
 
 what_relation(X, Y, brother) :-
     Y \= X,
     (father(T,X), father(T,Y); mother(T,X), mother(T,Y)),
-    male(Y).
+    male(X).
 
 what_relation(X, Y, sister) :-
     Y \= X, 
     (father(T,X), father(T,Y); mother(T,X), mother(T,Y)),
-    female(Y).
+    female(X).
 
 what_relation(Y, X, mother) :-
     Y \= X, 
@@ -53,20 +53,53 @@ what_relation(X, Y, daughter) :-
     (father(X, Y); mother(X, Y)),
     female(Y).
 
-% Поиск в глубину
+what_relation(X, Y, grandma) :-
+    Y \= X,
+    mother(Y, L),
+    (father(L, X); mother(L, X)).
+
+what_relation(X, Y, grandpa) :-
+    Y \= X,
+    father(Y, L),
+    (father(L, X); mother(L, X)).
+
+what_relation(X, Y, grandson) :-
+    Y \= X,
+    (father(X, L); mother(X, L)),    
+    (father(L, Y); mother(L, Y)),
+    male(Y).
+
+what_relation(X, Y, granddaughter) :-
+    Y \= X,
+    (father(X, L); mother(X, L)),    
+    (father(L, Y); mother(L, Y)),
+    female(Y).
+
+
+%
 
 prolong_d([X|T], [Y,X|T], S) :-
+    (male(X) ; female(X)),
+    (male(Y) ; female(Y)),
+    X \= Y,
     what_relation(X, Y, S),
     not(member(Y, [X|T])).
 
-relative_d(A,X,Y) :-
-    dpth([X],Y,_,A).
+relative_d(A, X, Y) :-
+    (male(X) ; female(X)),
+    (male(Y) ; female(Y)),
+    X \= Y,
+    integer(N),
+    dpth([X],Y,_,A, N).
 
-dpth([X|T], X, [X|T], []).
-dpth(P, F, L, A) :-
+dpth([X|T], X, [X|T], [], 0).
+dpth(P, F, L, A, N) :-
+    N > 0,
     prolong_d(P, P1, S),
-    dpth(P1, F, L, NA),
+    N1 is N - 1,
+    dpth(P1, F, L, NA, N1),
     append(NA,[S], A).
+
 
 % Поиск в ширину
 
@@ -77,10 +110,16 @@ chain_to_relations([C1,C2|T], [R|N]) :-
     chain_to_relations([C2|T], N).
 
 relative_b(A, X, Y) :-
+    (male(X) ; female(X)),
+    (male(Y) ; female(Y)),
+    X \= Y,
     bdth([[X]], Y, L),
     chain_to_relations(L, A).
 
 prolong_b([X|T], [Y,X|T]) :-
+    (male(X) ; female(X)),
+    (male(Y) ; female(Y)),
+    X \= Y,
     what_relation(Y, X, _),
     not(member(Y, [X|T])).
 
@@ -95,13 +134,38 @@ bdth([_|T], Y, L) :-
 % Загрузка отношений
 ?- ['Smith.pl'].
 
-?- relative_d(N, 'Carl Emil Smith', 'Martin Smith').
+?- relative_d([father], N, 'Martin Smith').
+%@ ERROR: Undefined procedure: relative_d/3 (DWIM could not correct goal).
+%@ N = 'Emil Smith' ;
+%@ N = 'Emil Smith' ;
+%@ N = 'Gustaf Smith Sr.' ;
+%@ N = 'Gustaf Smith Sr.' ;
+%@ N = 'Ingeman Smith' ;
+%@ N = 'Ingeman Smith' ;
+%@ N = 'Ingeman Smith' ;
+%@ N = 'Ingeman Smith' ;
+%@ N = 'Magnes Smith' ;
+%@ N = 'Magnes Smith' ;
+%@ N = 'Hanna Smith' ;
+%@ N = 'Hanna Smith' ;
+%@ N = 'Ingar Smith' ;
+%@ N = 'Ingar Smith' ;
+%@ false.
 
-%@ N = [brother, brother, brother, brother, husband, mother, sister, sister, brother|...] .
+?- father(N, 'Martin Smith').
+%@ N = 'Ingeman Smith' ;
+%@ N = 'Martin Smith'.
 
-:-trace.
-%@ true.
+?- what_relation('Martin Smith', N, father).
+%@ false.
+%@ false.
+%@ false.
 
-?- relative_b(N, 'Carl Emil Smith', 'Martin Smith').
+?- female(N), what_relation('Hanna Smith', N, father).
 
-%@ N = [brother, father] .
+
+'Carl Emil Smith'
+
+?- relative_d([brother, father], N, 'Martin Smith').
+
+%@ false.
