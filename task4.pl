@@ -15,90 +15,61 @@
 
 %  Для X-а Y является
 
-what_relation(X, Y, brother) :-
-    Y \= X,
+what_relation(Y, X, brother) :-
     (father(T,X), father(T,Y); mother(T,X), mother(T,Y)),
-    male(X).
+    male(X),
+    Y \= X.
 
-what_relation(X, Y, sister) :-
-    Y \= X, 
+what_relation(Y, X, sister) :-
     (father(T,X), father(T,Y); mother(T,X), mother(T,Y)),
-    female(X).
+    female(X),
+    Y \= X.
 
 what_relation(Y, X, mother) :-
-    Y \= X, 
-    mother(X, Y).
+    mother(X, Y),
+    Y \= X.
 
 what_relation(Y, X, father) :-
-    Y \= X,
-    father(X, Y).
+    father(X, Y),
+    Y \= X.
 
 what_relation(X, Y, husband) :-
-    Y \= X,
     mother(X, L),
-    father(Y, L).
+    father(Y, L),
+    Y \= X.
 
 what_relation(X, Y, wife) :-
-    Y \= X,
     father(X, L),
-    mother(Y, L).
+    mother(Y, L),
+    Y \= X.
 
 what_relation(X, Y, son) :-
-    Y \= X,
     (father(X, Y); mother(X, Y)),
-    male(Y).
+    male(Y),
+    Y \= X.
 
 what_relation(X, Y, daughter) :-
-    Y \= X,
     (father(X, Y); mother(X, Y)),
-    female(Y).
+    female(Y),
+    Y \= X.
 
-what_relation(X, Y, grandma) :-
-    Y \= X,
-    mother(Y, L),
-    (father(L, X); mother(L, X)).
+% ID-search
 
-what_relation(X, Y, grandpa) :-
-    Y \= X,
-    father(Y, L),
-    (father(L, X); mother(L, X)).
-
-what_relation(X, Y, grandson) :-
-    Y \= X,
-    (father(X, L); mother(X, L)),    
-    (father(L, Y); mother(L, Y)),
-    male(Y).
-
-what_relation(X, Y, granddaughter) :-
-    Y \= X,
-    (father(X, L); mother(X, L)),    
-    (father(L, Y); mother(L, Y)),
-    female(Y).
-
-
-%
-
-prolong_d([X|T], [Y,X|T], S) :-
-    (male(X) ; female(X)),
-    (male(Y) ; female(Y)),
-    X \= Y,
-    what_relation(X, Y, S),
+prolong_d([X|T], [Y1|T1], [Y,X|T], T1) :-
+    what_relation(X, Y, Y1),
     not(member(Y, [X|T])).
 
 relative_d(A, X, Y) :-
-    (male(X) ; female(X)),
-    (male(Y) ; female(Y)),
-    X \= Y,
-    integer(N),
-    dpth([X],Y,_,A, N).
+    between(1, 4, N),
+    dpth([X], Y, _, L, N),
+    reverse(L, A).
 
 dpth([X|T], X, [X|T], [], 0).
 dpth(P, F, L, A, N) :-
     N > 0,
-    prolong_d(P, P1, S),
+    prolong_d(P, A, P1, A1),
     N1 is N - 1,
-    dpth(P1, F, L, NA, N1),
-    append(NA,[S], A).
+    dpth(P1, F, L, A1, N1).
 
 
 % Поиск в ширину
@@ -110,16 +81,10 @@ chain_to_relations([C1,C2|T], [R|N]) :-
     chain_to_relations([C2|T], N).
 
 relative_b(A, X, Y) :-
-    (male(X) ; female(X)),
-    (male(Y) ; female(Y)),
-    X \= Y,
     bdth([[X]], Y, L),
     chain_to_relations(L, A).
 
 prolong_b([X|T], [Y,X|T]) :-
-    (male(X) ; female(X)),
-    (male(Y) ; female(Y)),
-    X \= Y,
     what_relation(Y, X, _),
     not(member(Y, [X|T])).
 
@@ -132,40 +97,49 @@ bdth([_|T], Y, L) :-
     bdth(T, Y, L).
 
 % Загрузка отношений
-?- ['Smith.pl'].
+%?- ['Smith.pl'].
 
-?- relative_d([father], N, 'Martin Smith').
-%@ ERROR: Undefined procedure: relative_d/3 (DWIM could not correct goal).
-%@ N = 'Emil Smith' ;
-%@ N = 'Emil Smith' ;
-%@ N = 'Gustaf Smith Sr.' ;
-%@ N = 'Gustaf Smith Sr.' ;
-%@ N = 'Ingeman Smith' ;
-%@ N = 'Ingeman Smith' ;
-%@ N = 'Ingeman Smith' ;
-%@ N = 'Ingeman Smith' ;
-%@ N = 'Magnes Smith' ;
-%@ N = 'Magnes Smith' ;
-%@ N = 'Hanna Smith' ;
-%@ N = 'Hanna Smith' ;
-%@ N = 'Ingar Smith' ;
-%@ N = 'Ingar Smith' ;
+male('Misha').
+male('Andrew').
+male('Sasha').
+father('God', 'Misha').
+father('God', 'Andrew').
+%?- relative_d(R, 'Andrew', 'Misha').
+%@ R = [brother] ;
+%@ R = [son, father] ;
+%@ false.
+%@ R = [brother] ;
+%@ R = [son, father] ;
+%@ false.
+    
+    
+%?- relative_d([brother, father], N, 'Martin Smith').
+%@ N = 'Astrid Shermanna Augusta Smith' ;
+%@ N = 'Carl Emil Smith' ;
+%@ N = 'Gus Smith' ;
+%@ N = 'Hans Peter Smith' ;
+%@ N = 'Hjalmar Smith' ;
+%@ N = 'Hjalmar Smith' ;
+%@ N = 'Kirsti Marie Smith' ;
 %@ false.
 
-?- father(N, 'Martin Smith').
-%@ N = 'Ingeman Smith' ;
-%@ N = 'Martin Smith'.
-
-?- what_relation('Martin Smith', N, father).
+%?- what_relation('Amber Marie Smith', 'Mason Michael Smith', N).
+%@ N = brother ;
+%@ N = brother ;
+%@ false.
+%@ N = sister ;
+%@ N = sister ;
 %@ false.
 %@ false.
 %@ false.
+%@ false.
 
-?- female(N), what_relation('Hanna Smith', N, father).
-
-
-'Carl Emil Smith'
-
-?- relative_d([brother, father], N, 'Martin Smith').
-
+%?- relative_d([mother, father], 'Amber Marie Smith', B).
+%@ B = 'Alice Paula Perkins' ;
+%@ false.
+%@ B = 'Janice Ann Adams' ;
+%@ false.
+%@ B = 'Mason Michael Smith' ;
+%@ B = 'Mason Michael Smith' ;
+%@ false.
 %@ false.

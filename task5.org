@@ -1,0 +1,599 @@
+#+PROPERTY: header-args :tangle ./task5-org.pl
+
+Здесь я попытаюсь запрограммировать курсовой проект по прологу в стиле литературного программирования.
+
+* Вызов основных предикатов, которые всё сделают
+Сначала нужно подгрузить генеалогическое дерево, представленное в виде предикатов пролога. 
+
+** Подгружается генеалогическое дерево, 4 задание курсача
+
+Генеалогическое древо семьи Смитов. Подгружается по умолчанию.
+#+BEGIN_SRC prolog :tangle no
+:- ['Smith.pl'].
+#+END_SRC
+
+Генеалогическое дерево для тестов.
+#+BEGIN_SRC prolog 
+male('Misha').
+male('Andrew').
+male('Sasha').
+female('God\'s wife').
+mother('God\'s wife', 'Misha').
+mother('God\'s wife', 'Andrew').
+father('God', 'Misha').
+father('God', 'Andrew').
+#+END_SRC
+
+Обработчик родственных связей из предыдущего задания курсача. 
+
+Кроме того, нужно установить начальные значения для использования слов и производных от he/she в вопросах.
+
+#+BEGIN_SRC prolog
+:- ['task4.pl'].
+:- nb_setval(prev_female, noperson).
+:- nb_setval(prev_male, noperson).
+
+#+END_SRC
+
+** Вход в программму 
+
+Предикат, который принимает вопрос, обрабатывает и выдаёт ответ
+
+#+BEGIN_SRC prolog
+  ask_question(A) :-
+      question(Model, A, []),
+      parse_model(Model, Args),
+      handle_args(Args, Ans),
+      print_res(Ans), !.
+
+  %?- ask_question([who, is, 'Misha\'s', brother]).
+  %@ the brother of Misha is Andrew
+  %@ true.
+  %?- ask_question([who, is, brother, of, 'Misha']).
+  %@ the brother of Misha is Andrew
+  %@ true.
+  %?- ask_question([whose, brother, is, 'Misha']).
+  %@ Misha is brother of Andrew
+  %@ true.
+  %?- ask_question([is, 'Misha', 'Andrew\'s', brother]).
+  %@ yes Andrew is brother of Misha
+  %@ true.
+  %?- ask_question([what, kind, relations, between, 'Misha', and, 'Andrew']).
+  %@ Andrew is brother of Misha
+  %@ true.
+  %?- ask_question([who, is, 'Misha', for, 'Andrew']).
+  %@ Andrew is brother of Misha
+  %@ true.
+  %?- ask_question([how, many, brothers, does, 'Misha', have]).
+  %@ Misha have 1 brothers
+  %@ true.
+#+END_SRC
+
+
+* Реализация предиката question
+
+** Общие пояснения по предикату
+ Предикат question(Model, A, []) принимает вопрос и выдаёт синтаксическую модель данного вопроса.
+
+ Мой предикат relative_d(List_relations, Person1, Person2), который определяет степень родства, по смыслу работает так: для Person1 человек Person2 является List_relations.
+
+** Типовые вопросы
+   ( Далее n1 - noun1 - то есть, имя первого человека (Person1) в запросе к relative_d, n2 - noun2 - то есть, имя второго человека (Person2). r - родственное отношение. )
+
+Всего будет 5 типовых вопросов:
+ - n1r_q: 
+   Who is Misha's(n1) brother(r)?
+   Who is the brother(r) of Misha(n1)?
+ - n2r_q:
+   Whose brother is Misha?
+ - n1n2r_q:
+   Is/Was Misha Andrew brother?
+ - rn1n2_q:
+   What kind relations between Misha and Andrew?
+   Who is Misha for Andrew?
+ - num_q:
+   How many brothers does/did Misha have?
+
+ #+BEGIN_SRC prolog
+ question(X) --> n1r_q(X). % Who is n1 R
+ question(X) --> n2r_q(X). % Whose R is n2  
+ question(X) --> rn1n2_q(X). % What kind R between n1 and n2
+ question(X) --> n1n2r_q(X). % Is/was n1 n2 R
+ question(X) --> num_q(X). % How many
+
+ #+END_SRC
+
+
+** Реализация первого типа вопросов n1r_q (tested)
+
+Первая часть, для разбора
+Who is Misha's(n1) brother(r)?
+
+#+BEGIN_SRC prolog
+  n1r_q(n1r_q(W1, W2, W3)) -->
+      question_word(W1, n1r_q),
+      add_verb(be_forms),
+      person(W2, posessive),
+      rec_relative(W3, _).
+
+  %?- n1r_q(R, [Who, is, 'Misha\'s', brother], []).
+  %@ R = n1r_q(question_word([who]), person('Misha'), relative([brother])),
+  %@ Who = who ;
+  %@ false.
+#+END_SRC
+
+Вторая часть, для разбора
+Who is the brother(r) of Misha(n1)?
+
+#+BEGIN_SRC prolog
+  n1r_q(n1r_q(W1, W3, W2)) -->
+      question_word(W1, n1r_q),
+      add_verb(be_forms),
+      article,
+      rec_relative(W2, _),
+      [of],
+      person(W3, common).
+
+  %?- n1r_q(R, [Who, is, the, brother, of, Misha], []).
+  %@ R = n1r_q(question_word([who]), person('Misha'), relative([brother])),
+  %@ Who = who ;
+  %@ false.
+
+#+END_SRC
+
+** Реализация второго типа вопросов n2r_q (tested)
+
+ Здесь всего одна часть, потому, что кажется, нет других вариаций такого вопроса.
+ Whose brother is Misha?
+
+ #+BEGIN_SRC prolog
+   n2r_q(n2r_q(W1, W2, W3)) -->
+       question_word(W1, n2r_q),
+       rec_relative(W3, _),
+       add_verb(be_forms),
+       person(W2, common).
+
+   %?- n2r_q(R, [Whose, brother, is, Misha], []).
+   %@ R = n2r_q(question_word([whose]), person('Misha'), relative([brother])),
+   %@ Whose = whose ;
+   %@ false.
+
+ #+END_SRC
+ 
+** Реализация третьего типа вопросов n1n2r_q (tested)
+
+   В этом типе вопросов нужно будет отвечать true/false на подобное:
+   Is/Was Misha Andrew brother?
+
+#+BEGIN_SRC prolog
+  n1n2r_q(n1n2r_q(W1, W2, W3, W4)) -->
+      question_word(W1, n1n2r_q),
+      person(W2, common),
+      person(W3, posessive),
+      rec_relative(W4, s).
+
+  %?- n1n2r_q(R, [is, 'Misha', 'Andrew\'s', brother], []).
+  %@ R = n1n2r_q(question_word([is]), person('Misha'), person('Andrew'), relative([brother])) ;
+  %@ false.
+
+#+END_SRC
+
+** Реализация четвёртого типа вопросов rn1n2_q (tested)
+
+Этот предикат потребует другие вспомогательные предикаты, кроме тех, что использовались в разобранных типах вопросов.
+
+Первый вариант предиката:
+What kind/type relations between Misha and Andrew?
+#+BEGIN_SRC prolog
+  rn1n2_q(rn1n2_q(W1, W2, W3)) -->
+      question_word(W1, rn1n2_q1),
+      [X], {member(X, [kind, type])},
+      [relations], [between],
+      person(W2, common),
+      [and],
+      person(W3, common).
+
+  %?- rn1n2_q(R, [what, kind, relations, between, 'Misha', and, 'Andrew'], []).
+  %@ R = rn1n2_q(question_word([what]), person('Misha'), person('Andrew')) ;
+  %@ false.
+
+#+END_SRC
+
+
+Второй вариант предиката:
+Who is Misha for Andrew?
+#+BEGIN_SRC prolog
+  rn1n2_q(rn1n2_q(W1, W2, W3)) -->
+      question_word(W1, rn1n2_q2),
+      add_verb(be_forms),
+      person(W2, common),
+      [for],
+      person(W3, common).
+
+  %?- rn1n2_q(R, [who, is, 'Misha', for, 'Andrew'], []).
+  %@ R = rn1n2_q(question_word([who]), person('Misha'), person('Andrew')) ;
+  %@ false.
+                               
+#+END_SRC
+
+** Реализация пятого типа вопросов (tested)
+
+Это вопросы про количество таких-то родственников.
+How many brothers does Misha have.
+
+#+BEGIN_SRC prolog
+  num_q(num_q(W1, W2, W3)) -->
+      question_word(W1, num_q),
+      rec_relative(W2, _),
+      add_verb(do_forms),
+      person(W3, common),
+      [X], {member(X, [have, had])}.
+
+  %?- num_q(R, [how, many, brothers, does, 'Misha', have], []).
+  %@ R = num_q(question_word([how, many]), relative([brother]), person('Misha')) ;
+  %@ false.
+    
+#+END_SRC
+
+** Необходимые предикаты для обработки вопросов
+
+*** Определение вопросного слова
+    
+#+BEGIN_SRC prolog
+question_word(question_word([who]), n1r_q) --> [who].
+question_word(question_word([whose]), n2r_q) --> [whose].
+question_word(question_word([what]), rn1n2_q1) --> [what].
+question_word(question_word([who]), rn1n2_q2) --> [who].
+question_word(question_word([X]), n1n2r_q) --> [X], {member(X, [is, was])}.
+question_word(question_word([how,many]), num_q) --> [how, many]. 
+
+#+END_SRC
+
+*** Определение родственного отношения (tested)
+
+Предикат рекурсивно парсит родственные отношения вида brother of mother of father.
+
+#+BEGIN_SRC prolog
+  rec_relative(relative(L), Pl) -->
+      relative_noun(X, Pl),
+      [of],
+      rec_relative(relative(L1), Pl),
+      {append([X], L1, L)}.
+  rec_relative(relative([X]), Pl) --> relative_noun(X, Pl).
+
+  relative_noun(X,s) --> [X], {member(X, [brother, sister, mother, child, father, wife, husband, son, daughter])}.
+  relative_noun(R,pl) --> [X], {atom_chars(X,C), append(RT,[s],C), atom_chars(R,RT), relative_noun(R,s,[R],[])}.
+
+  %?- rec_relative(R, _, [daughter, of, sister], []).
+  %@ R = relative([daughter, sister]) ;
+  %@ false.
+#+END_SRC
+
+*** Определение человека (tested)
+
+    Предикат парсит имя человека
+#+BEGIN_SRC prolog
+person(X) :- male(X) ; female(X).
+person(person(P), common) --> [P], {person(P)}.
+person(person(P), common) --> [P], {member(P, [he, she])}.
+person(person(X), posessive) --> [P], {atom_string(P,S), string_concat(S1,"\'s", S), atom_string(X,S1),person(X)}. %'
+person(person(P), posessive) --> [P], {member(P,[his,her])}.
+
+%?- person(R, _, ['Amber Marie Smith'], []).
+%@ R = person('Amber Marie Smith') ;
+%@ false.
+
+#+END_SRC
+
+*** Вспомогательные глаголы, артикли и прочие мелочи
+
+Вспомогательные глаголы:
+#+BEGIN_SRC prolog
+add_verb(X) --> {member(X, [be_forms])}, [P], {member(P, [is, was, were])}.
+add_verb(X) --> {member(X, [do_forms])}, [P], {member(P, [do, does, did])}.
+
+#+END_SRC
+
+Артикли:
+#+BEGIN_SRC prolog
+  article --> [X], {member(X, [the, a, an])}.
+  article --> [].
+#+END_SRC
+
+
+* Реализация предиката parse_model
+
+Данный предикат разбирает синтаксическую модель из question, получая смысловую модель.
+Смысловая модель будет выглядеть примерно так: model(num_q, P1, P2, R). 
+
+** Смысловая модель первого типа вопросов
+
+Напомню, что в первом типе вопросов есть два варинта постановки вопроса:
+- Who is Misha's(n1) brother(r)?
+- Who is the brother(r) of Misha(n1)?
+
+Однако ответ на них будет одинаковый:
+- The brother of Misha is Andrew.
+
+Его можно получить с помощью relative_d([brother], 'Misha', N).
+
+Предикат handle_pronoun ещё не введён, но он будет нужен для обработки случая, когда в запрос поступают he/she/his/her.
+
+#+BEGIN_SRC prolog
+  parse_model(Model, model(n1r_q, P1, R)) :-
+      Model = n1r_q(question_word(_), person(N1), relative(R)),
+      handle_pronoun(N1, P1).
+
+  %?- parse_model(n1r_q(question_word([who]), person('Misha'), relative([brother])), Ans).
+  %@ Ans = model(n1r_q, 'Misha', [brother]) ;
+  %@ false.
+#+END_SRC
+
+** Смысловая модель второго типа вопросов
+Напоминание вопроса:
+- Whose brother is Misha?
+
+Ответ на него:
+- Misha is brother of Andrew.
+
+#+BEGIN_SRC prolog
+  parse_model(Model, model(n2r_q, P2, R)) :-
+      Model = n2r_q(question_word(_), person(N2), relative(R)),
+      handle_pronoun(N2, P2).
+
+  %?- parse_model(n2r_q(question_word([whose]), person('Misha'), relative([brother])), Ans).
+  %@ Ans = model(n2r_q, 'Misha', [brother]) ;
+  %@ false.
+#+END_SRC
+
+** Смысловая модель третьего типа вопросов
+Напоминание вопроса:
+- Is/Was Misha Andrew brother?
+
+Ответ в этом типе не будет односложным, потому в модель пойдёт вся информация.
+- Yes, Misha is brother of Andrew.
+
+#+BEGIN_SRC prolog
+  parse_model(Model, model(n1n2r_q, P1, P2, R)) :-
+      Model = n1n2r_q(question_word(_), person(N1), person(N2), relative(R)),
+      handle_pronoun(N1, P1),
+      handle_pronoun(N2, P2).
+
+  %?- parse_model(n1n2r_q(question_word([is]), person('Misha'), person('Andrew'), relative([brother])), Ans).
+  %@ Ans = model(n1n2r_q, 'Misha', 'Andrew', [brother]) ;
+  %@ false.
+#+END_SRC
+
+** Смысловая модель четвёртого типа вопросов
+Здесь, как и в первом типе, два варианта постановки вопроса:
+- What kind/type relations between Misha and Andrew?
+- Who is Misha for Andrew?
+
+Предикат relative_d здесь нужно вызывать так: relative_d(R, 'Andrew', 'Misha').
+
+Ответ будет:
+- Misha is brother of Andrew.
+
+#+BEGIN_SRC prolog
+  parse_model(Model, model(rn1n2_q, P1, P2)) :-
+      Model = rn1n2_q(question_word(_), person(N2), person(N1)),
+      handle_pronoun(N1, P1),
+      handle_pronoun(N2, P2).    
+
+  %?- parse_model(nr1r2_q(question_word([what]), person('Misha'), person('Andrew')), Ans).
+  %@ Ans = model(rn1n2_q, 'Andrew', 'Misha') ;
+  %@ false.
+#+END_SRC
+
+** Смысловая модель пятого типа вопросов
+Напоминание вопроса:
+- How many brothers does Misha have.
+
+Ответом будет:
+- Misha have 4 brothers.
+
+#+BEGIN_SRC prolog
+  parse_model(Model, model(num_q, P1, R)) :-
+      Model = num_q(question_word(_), relative(R), person(N1)),
+      handle_pronoun(N1, P1).
+
+  %?- parse_model(num_q(question_word([how, many]), relative([brother]), person('Misha')), Ans).
+  %@ Ans = model(num_q, 'Misha', [brother]) ;
+  %@ false.
+#+END_SRC
+
+
+** Предикат обработки местоимений handle_pronoun
+Необходимо уметь сохранять информацию о последнем названном человеке, чтобы уметь обрабатывать запросы со словами he/she/his/her вместо имён.
+
+Предикат handle_pronoun будет запоминать человека или выдавать имя последнего введённого человека, подходящего под местоимение.
+
+*** Запоминание имени человека 
+
+#+BEGIN_SRC prolog
+  handle_pronoun(P, P) :-
+      not(member(P, [he, his, him, she, her])),
+      male(P), nb_setval(prev_male, P).
+
+  handle_pronoun(P, P) :-
+      not(member(P, [he, his, him, she, her])),
+      female(P), nb_setval(prev_female, P).
+    
+#+END_SRC
+
+*** Выдача имени по местоимению
+
+#+BEGIN_SRC prolog
+  handle_pronoun(P, N) :-
+      member(P, [he, his, him]),
+      nb_getval(prev_male, N).
+
+  handle_pronoun(P, N) :-
+      member(P, [she, her]),
+      nb_getval(prev_female, N).
+#+END_SRC
+
+
+* Реализация предиката handle_args
+ 
+В результате работы этого предиката будет получаться список из слов, который будет являться ответом на поставленный вопрос. 
+
+Предикат add_of, который вставляет между всеми элементами списка 'of' будет описан позже.
+
+** Обработка модели первого типа
+Для модели первого типа имеем следующий типовой ответ:
+- The brother of Misha is Andrew.
+
+Для начала нужно будет определить ответ на поставленный вопрос с помощью предиката relative_d(r, n1, N2), после чего включить всё необходимое в список слов ответа.
+
+#+BEGIN_SRC prolog
+  handle_args(model(n1r_q, N1, R), Ans) :- 
+      relative_d(R, N1, N2),
+      add_of(R, R1),
+      append([the], R1, First_part),
+      append(First_part, [of, N1, is, N2], Ans).
+
+  %?- handle_args(model(n1r_q, 'Misha', [brother]), Ans).
+  %@ Ans = [the, brother, of, 'Misha', is, 'Andrew'] ;
+  %@ false.
+#+END_SRC
+
+** Обработка модели второго типа
+Для модели второго типа имеем следующий ответ: 
+- Misha is brother of Andrew.
+
+#+BEGIN_SRC prolog
+  handle_args(model(n2r_q, N2, R), Ans) :-
+      relative_d(R, N1, N2),
+      add_of(R, R1),
+      append([N2, is], R1, First_part),
+      append(First_part, [of, N1], Ans).
+
+  %?- handle_args(model(n2r_q, 'Misha', [brother]), Ans).
+  %@ Ans = ['Misha', is, brother, of, 'Andrew'] ;
+  %@ false.
+#+END_SRC
+
+** Обработка модели третьего типа
+Ответ для этой модели будет одним из двух возможных:
+- Yes, Misha is brother of Andrew.
+- No, Misha is not brother of Sasha.
+
+Соответсвенно, будет два предиката для обработки обоих случаев
+#+BEGIN_SRC prolog
+  handle_args(model(n1n2r_q, N1, N2, R), Ans) :-
+      relative_d(R, N2, N1),
+      add_of(R, R1),
+      append([yes, N2, is], R1, First_part),
+      append(First_part, [of, N1], Ans).
+
+  %?- handle_args(model(n1n2r_q, 'Misha', 'Andrew', [brother]), Ans).
+  %@ Ans = [yes, 'Andrew', is, brother, of, 'Misha'] ;
+  %@ false.
+
+  handle_args(model(n1n2r_q, N1, N2, R), Ans) :-
+      not(relative_d(R, N2, N1)),
+      add_of(R, R1),
+      append([no, N2, is, not], R1, First_part),
+      append(First_part, [of, N1], Ans).
+
+  %?- handle_args(model(n1n2r_q, 'Misha', 'Sasha', [brother]), Ans).
+  %@ Ans = [no, 'Sasha', is, not, brother, of, 'Misha'] ;
+  %@ false.
+#+END_SRC
+
+** Обработка модели четвёртого типа
+Ответ будет:
+- Misha is brother of Andrew.
+
+В данном случае предикат будет выводить цепочку родственных связей, либо отвечать, что она не нашлась.
+
+#+BEGIN_SRC prolog
+  handle_args(model(rn1n2_q, N1, N2), Ans) :-
+      relative_d(R, N1, N2),
+      add_of(R, R1),
+      append([N1, is], R1, First_part),
+      append(First_part, [of, N2], Ans).
+
+  %?- handle_args(model(rn1n2_q, 'Andrew', 'Misha'), Ans).
+  %@ Ans = ['Andrew', is, brother, of, 'Misha'] ;
+  %@ Ans = ['Andrew', is, brother, of, 'Misha'] ;
+  %@ Ans = ['Andrew', is, son, of, mother, of, 'Misha'] ;
+  %@ Ans = ['Andrew', is, son, of, father, of, 'Misha'] ;
+  %@ Ans = ['Andrew', is, son, of, husband, of, mother, of, 'Misha'] ;
+  %@ Ans = ['Andrew', is, son, of, husband, of, mother, of, 'Misha'] ;
+  %@ Ans = ['Andrew', is, son, of, wife, of, father, of, 'Misha'] ;
+  %@ Ans = ['Andrew', is, son, of, wife, of, father, of, 'Misha'] ;
+  %@ false.
+
+  handle_args(model(rn1n2_q, N1, N2), Ans) :-
+      not(relative_d(_, N1, N2)),
+      Ans = [there, is, no, data, to, define, relations].
+
+  %?- handle_args(model(rn1n2_q, 'Sasha', 'Misha'), Ans).
+  %@ Ans = [there, is, no, data, to, define, relations].
+#+END_SRC
+
+** Обработка модели пятого типа
+Ответом будет:
+- Misha have 4 brothers.
+#+BEGIN_SRC prolog
+  handle_args(model(num_q, N1, R), Ans) :-
+      setof(N2, relative_d(R, N1, N2), L),
+      length(L, C),
+      to_plural(R, R1),
+      add_of(R1, R2),
+      append([N1, have, C], R2, Ans).
+
+  %?- handle_args(model(num_q, 'Misha', [brother]), Ans).
+  %@ Ans = ['Misha', have, 1, brothers] ;
+  %@ false.
+#+END_SRC
+
+** Предикаты add_of и to_plural
+Предикат add_of вставляет 'of' между всеми элементами списка
+#+BEGIN_SRC prolog
+  add_of([X], [X]).
+  add_of([X|T], [X, of|T1]) :-
+      add_of(T, T1).
+
+  %?- add_of([1,2,3,4,5], L).
+  %@ L = [1, of, 2, of, 3, of, 4, of, 5] ;
+  %@ false.
+#+END_SRC
+
+Предикат to_plural добавляет символ 's' ко всем элементам списка
+
+#+BEGIN_SRC prolog
+  to_plural([], []).
+  to_plural([X|T], [X1|T1]) :-
+      not(member(X, [father, mother, wife, husband])),
+      term_string(X, Y),
+      string_chars(Y, Z),
+      append(Z, [s], Z1),
+      string_chars(Y1, Z1),
+      term_string(X1, Y1),
+      to_plural(T, T1).
+  to_plural([X|T], [X|T1]) :-
+      member(X, [father, mother, wife, husband]),
+      to_plural(T, T1).
+
+  %?- to_plural([brother, father], R).
+  %@ R = [brothers, father] ;
+  %@ false.
+#+END_SRC
+
+
+* Реализация предиката print_res
+  
+Предикат просто берёт исходный список слов и собирает их в одну строку, после чего выводит ответ.
+#+BEGIN_SRC prolog
+  print_res(L) :-
+      atomics_to_string(L, ' ', S),
+      write(S), nl, !.
+
+  %?- print_res([the, brother, of, 'Misha', is, 'Andrew']).
+  %@ the brother of Misha is Andrew
+  %@ true.
+#+END_SRC
+
