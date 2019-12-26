@@ -26,7 +26,7 @@ printGenders lst
 
 -- предикаты пола
 gender :: String -> String -> String
-gender who man = who ++ "(\'" ++ man ++ "\').\n"
+gender who man = who ++ "(\"" ++ man ++ "\").\n"
 
 -- создание предикатов родителей
 transform :: [String] -> Map String (String, String) -> String
@@ -42,7 +42,7 @@ transform src lst
 
 -- предикаты родителей
 merge :: String -> String -> String -> String
-merge who parent childs = who ++ "(\'" ++ parent ++ "\', \'" ++ childs ++ "\').\n"
+merge who parent childs = who ++ "(\"" ++ parent ++ "\", \"" ++ childs ++ "\").\n"
 
 -- список детей в семье
 child :: [String] -> Map String (String, String) -> [String]
@@ -110,5 +110,5 @@ findGender man
 
 -- убирает лишние символы
 dropNonLetters :: String -> String
-dropNonLetters xs = (filter (\x -> x /= '\'' && x /= '/')) xs 
+dropNonLetters xs = (filter (\x ->  x /= '/')) xs 
 

@@ -15,40 +15,40 @@
 
 %  Для X-а Y является
 
-what_relation(Y, X, brother) :-
+what_relation(Y, X, "brother") :-
     (father(T,X), father(T,Y); mother(T,X), mother(T,Y)),
     male(X),
     Y \= X.
 
-what_relation(Y, X, sister) :-
+what_relation(Y, X, "sister") :-
     (father(T,X), father(T,Y); mother(T,X), mother(T,Y)),
     female(X),
     Y \= X.
 
-what_relation(Y, X, mother) :-
+what_relation(Y, X, "mother") :-
     mother(X, Y),
     Y \= X.
 
-what_relation(Y, X, father) :-
+what_relation(Y, X, "father") :-
     father(X, Y),
     Y \= X.
 
-what_relation(X, Y, husband) :-
+what_relation(X, Y, "husband") :-
     mother(X, L),
     father(Y, L),
     Y \= X.
 
-what_relation(X, Y, wife) :-
+what_relation(X, Y, "wife") :-
     father(X, L),
     mother(Y, L),
     Y \= X.
 
-what_relation(X, Y, son) :-
+what_relation(X, Y, "son") :-
     (father(X, Y); mother(X, Y)),
     male(Y),
     Y \= X.
 
-what_relation(X, Y, daughter) :-
+what_relation(X, Y, "daughter") :-
     (father(X, Y); mother(X, Y)),
     female(Y),
     Y \= X.
@@ -99,11 +99,6 @@ bdth([_|T], Y, L) :-
 % Загрузка отношений
 %?- ['Smith.pl'].
 
-male('Misha').
-male('Andrew').
-male('Sasha').
-father('God', 'Misha').
-father('God', 'Andrew').
 %?- relative_d(R, 'Andrew', 'Misha').
 %@ R = [brother] ;
 %@ R = [son, father] ;
